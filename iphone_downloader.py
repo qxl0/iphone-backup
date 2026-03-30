@@ -391,7 +391,7 @@ def copy_with_timeout(shell, src_item, dest_dir: Path, filename: str,
 
 # ── Main transfer logic ────────────────────────────────────────────────────────
 
-def transfer_photos(dest_dir: Path, log, reset: bool = False):
+def transfer_photos(dest_dir: Path, log, reset: bool = False) -> None:
     state = TransferState(dest_dir / "transfer_state.json")
     if reset:
         state.reset()
@@ -401,88 +401,176 @@ def transfer_photos(dest_dir: Path, log, reset: bool = False):
     try:
         shell = _make_shell()
 
-        log.info("Searching for iPhone…")
-        iphone = find_iphone(shell, log)
-        if iphone is None:
-            log.error("iPhone not found. Make sure it is:")
-            log.error("  1. Connected via USB")
-            log.error("  2. Unlocked")
-            log.error('  3. You tapped "Trust This Computer" on the iPhone screen')
-            return
+        # ── Find iPhone (with retry) ───────────────────────────────────────────
+        print(f"{YELLOW}⟳ Looking for your iPhone...{RESET}", flush=True)
+        while True:
+            iphone = find_iphone(shell, log)
+            if iphone:
+                break
+            print(f"\r{RED}✗ iPhone not found.{RESET}                    ")
+            print(f"\nMake sure your iPhone is:")
+            print(f"  \u2022 Plugged in via USB")
+            print(f"  \u2022 Turned on and unlocked")
+            print(f"  \u2022 Showing \"Trust This Computer?\" \u2014 tap {GREEN}Trust{RESET}\n")
+            print(f"Press {GREEN}R{RESET} to retry, or any other key to quit...")
+            key = msvcrt.getwch()
+            if key.lower() != "r":
+                return
+            print(f"\n{YELLOW}⟳ Looking for your iPhone...{RESET}", flush=True)
+            try:
+                pythoncom.CoUninitialize()
+            except Exception:
+                pass
+            pythoncom.CoInitialize()
+            shell = _make_shell()
 
-        log.info("Looking for photo folder…")
+        print(f"\r{GREEN}✓ iPhone found!{RESET}                         ")
+
+        # ── Find photo root ────────────────────────────────────────────────────
+        print(f"{YELLOW}⟳ Scanning photos...{RESET}", flush=True)
         dcim = find_photos_root(shell, iphone, log)
         if dcim is None:
-            log.error("Could not find photos folder on iPhone.")
-            log.error("Try unplugging, relocking, unlocking, and reconnecting.")
+            print(f"\r{RED}✗ Could not find photos on your iPhone.{RESET}")
+            print(f"\nTry unplugging, relocking, unlocking, and reconnecting.")
+            press_any_key()
             return
 
+        # ── Pre-enumerate all files ────────────────────────────────────────────
         subfolders = _folder_items(shell, dcim)
-        log.info(f"Found {len(subfolders)} album folder(s) in DCIM.")
-
-        total = copied = skipped = failed = 0
-
+        all_items: list[tuple[str, Path, object, str]] = []
         for subfolder_item in subfolders:
-            sub_name   = subfolder_item.Name
-            dest_sub   = dest_dir / sub_name
-            dest_sub.mkdir(exist_ok=True)
+            sub_name = subfolder_item.Name
+            dest_sub = dest_dir / sub_name
             files = _folder_items(shell, subfolder_item)
             if not files:
                 files = _refetch_album(sub_name, log)
-            log.info(f"\n[{sub_name}]  {len(files)} file(s)")
-
             for file_item in files:
-                filename = file_item.Name
-                total += 1
-                key       = f"{sub_name}/{filename}"
-                dest_path = dest_sub / filename
+                all_items.append((sub_name, dest_sub, file_item, file_item.Name))
 
-                # Already done in a previous run
-                if state.is_done(key):
-                    skipped += 1
-                    continue
+        total = len(all_items)
+        print(f"\r{GREEN}✓ Found {total:,} photos.{RESET}                ")
 
-                # File exists with non-zero size — count it as done
-                if dest_path.exists() and dest_path.stat().st_size > 0:
-                    state.mark_done(key, dest_path.stat().st_size)
-                    skipped += 1
-                    continue
+        if total == 0:
+            print(f"\n{GREEN}✓ No new photos found \u2014 you\u2019re all backed up!{RESET}")
+            press_any_key()
+            return
 
-                retries = state.get_retries(key)
-                if retries >= MAX_RETRIES:
-                    log.warning(f"  SKIP (max retries reached): {filename}")
-                    failed += 1
-                    continue
+        # ── Disk space check ───────────────────────────────────────────────────
+        try:
+            free = shutil.disk_usage(dest_dir).free
+            already_done = sum(
+                1 for sub, _, _, fname in all_items
+                if state.is_done(f"{sub}/{fname}")
+            )
+            remaining_count = total - already_done
+            estimated_needed = remaining_count * 3_000_000  # ~3 MB avg
+            if estimated_needed > free:
+                print(f"\n{RED}✗ Not enough disk space.{RESET}")
+                print(f"  Available : {free / 1e9:.1f} GB")
+                print(f"  Estimated : {estimated_needed / 1e9:.1f} GB needed")
+                print(f"\nFree up space and run again \u2014 already-copied photos will be skipped.")
+                press_any_key()
+                return
+        except Exception:
+            pass  # best-effort check
 
-                attempt = retries + 1
-                log.info(f"  → {filename}  (attempt {attempt}/{MAX_RETRIES})")
+        # ── Copy loop ──────────────────────────────────────────────────────────
+        print()
+        copied = skipped = failed = 0
+        start_time = time.time()
+        last_sub: str | None = None
 
-                ok = copy_with_timeout(
-                    shell, file_item, dest_sub, filename, TIMEOUT_PER_FILE, log
-                )
+        for sub_name, dest_sub, file_item, filename in all_items:
+            dest_sub.mkdir(exist_ok=True)
+            key       = f"{sub_name}/{filename}"
+            dest_path = dest_sub / filename
+            done_so_far = copied + skipped + failed
 
-                if ok:
-                    size = dest_path.stat().st_size if dest_path.exists() else 0
-                    state.mark_done(key, size)
-                    copied += 1
-                    log.info(f"     ✓  {filename}  ({size:,} bytes)")
-                else:
-                    state.increment_retries(key)
-                    failed += 1
-                    log.warning(f"     ✗  {filename}  — will retry next run")
+            # Album header when subfolder changes
+            if sub_name != last_sub:
+                if last_sub is not None:
+                    print()
+                print(f"  {DIM}[{sub_name}]{RESET}")
+                last_sub = sub_name
 
-        # ── Summary ──────────────────────────────────────────────────────────
-        log.info("\n" + "=" * 55)
-        log.info("Transfer finished!")
-        log.info(f"  Copied  : {copied}")
-        log.info(f"  Skipped : {skipped}  (already transferred)")
-        log.info(f"  Failed  : {failed}")
-        log.info(f"  Total   : {total}")
-        log.info(f"  Saved to: {dest_dir}")
+            # Skip already-done files
+            if state.is_done(key):
+                skipped += 1
+                continue
+            if dest_path.exists() and dest_path.stat().st_size > 0:
+                state.mark_done(key, dest_path.stat().st_size)
+                skipped += 1
+                continue
 
-        if failed > 0:
-            log.warning(f"\n{failed} file(s) failed. Run the script again to retry them.")
+            retries = state.get_retries(key)
+            if retries >= MAX_RETRIES:
+                failed += 1
+                log.warning(f"Max retries reached: {key}")
+                continue
 
+            # Print in-progress line (no newline — overwritten on completion)
+            elapsed = time.time() - start_time
+            bar = format_bar(done_so_far, total)
+            eta = format_eta(done_so_far, total, elapsed)
+            pct = int(done_so_far / total * 100) if total else 0
+            progress = f"{DIM}{bar} {pct}%  {eta}{RESET}"
+            print(
+                f"\r  {YELLOW}\u2192{RESET} {filename}  {progress}    ",
+                end="", flush=True
+            )
+
+            ok = copy_with_timeout(
+                shell, file_item, dest_sub, filename, TIMEOUT_PER_FILE, log
+            )
+
+            if ok:
+                size = dest_path.stat().st_size if dest_path.exists() else 0
+                state.mark_done(key, size)
+                copied += 1
+                print(f"\r  {DIM}{GREEN}\u2713{RESET}{DIM} {filename}{RESET}" + " " * 40)
+                log.debug(f"\u2713 {key} ({size:,} bytes)")
+            else:
+                # Check if iPhone disconnected
+                if find_iphone(shell, log) is None:
+                    print(f"\r\n{YELLOW}iPhone disconnected. Your progress has been saved.{RESET}")
+                    print(f"\nPlug it back in and run the backup again to continue.")
+                    press_any_key()
+                    return
+                state.increment_retries(key)
+                failed += 1
+                print(f"\r  {RED}\u2717 {filename}{RESET}" + " " * 40)
+                log.warning(f"\u2717 {key} \u2014 retry {retries + 1}/{MAX_RETRIES}")
+
+        # ── Summary ────────────────────────────────────────────────────────────
+        elapsed_total = int(time.time() - start_time)
+        print()
+
+        if copied == 0 and skipped == total:
+            print(f"\n{GREEN}\u2713 No new photos found \u2014 you\u2019re all backed up!{RESET}")
+        else:
+            print(f"\n{GREEN}{BRIGHT}\u2713 Backup complete!{RESET}")
+            if copied:
+                print(f"  {copied:,} photos copied")
+            if skipped:
+                print(f"  {skipped:,} already up to date (skipped)")
+            if failed:
+                print(f"  {RED}{failed:,} failed{RESET} \u2014 run again to retry")
+            print(f"  Completed in {format_elapsed(elapsed_total)}")
+
+        print(f"\n{DIM}Saved to: {dest_dir}{RESET}")
+        if failed:
+            log.warning(f"{failed} file(s) failed after {MAX_RETRIES} retries.")
+
+    except OSError as exc:
+        msg = str(exc).lower()
+        if "access" in msg or "denied" in msg or "permission" in msg:
+            print(f"\n{RED}\u2717 Can't write to {dest_dir}.{RESET}")
+            print(f"  Try choosing a different folder.")
+            log.error(f"Permission denied: {exc}")
+        else:
+            print(f"\n{RED}\u2717 Unexpected error. Details saved to the log file.{RESET}")
+            log.exception("Unexpected OSError")
+        press_any_key()
     finally:
         pythoncom.CoUninitialize()
 
