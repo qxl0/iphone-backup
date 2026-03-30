@@ -577,29 +577,33 @@ def transfer_photos(dest_dir: Path, log, reset: bool = False) -> None:
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
-def main():
+def main() -> None:
     args  = sys.argv[1:]
     reset = "--reset" in args
     args  = [a for a in args if a != "--reset"]
 
+    print_banner()
+
+    # Destination: use CLI arg if provided, otherwise interactive prompt
     if args:
         dest_dir = Path(args[0])
+        print(f"Destination: {YELLOW}{dest_dir}{RESET}\n")
     else:
-        dest_dir = Path.home() / "Pictures" / "iPhone Photos"
+        dest_dir = prompt_dest()
 
     log = setup_logging(dest_dir)
-    log.info("iPhone Photo Downloader")
-    log.info(f"Destination : {dest_dir}")
-    log.info(f"Timeout/file: {TIMEOUT_PER_FILE}s   Max retries: {MAX_RETRIES}")
-    log.info("-" * 55)
+    log.debug(f"Destination: {dest_dir}  reset={reset}")
 
     try:
         transfer_photos(dest_dir, log, reset=reset)
     except KeyboardInterrupt:
-        log.info("\nStopped by user. Progress saved — run again to resume.")
+        print(f"\n\n{YELLOW}Stopped. Progress saved \u2014 run again to resume.{RESET}")
+        press_any_key()
     except Exception:
         log.exception("Unexpected error")
-        log.info("Progress saved — run again to resume.")
+        print(f"\n{RED}\u2717 Something went wrong. Details saved to the log file in:{RESET}")
+        print(f"  {dest_dir}")
+        press_any_key()
 
 
 if __name__ == "__main__":
