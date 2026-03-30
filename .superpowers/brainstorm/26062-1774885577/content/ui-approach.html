@@ -1,0 +1,78 @@
+<h2>What kind of app should this be?</h2>
+<p class="subtitle">This shapes everything — pick the experience that feels right for your non-technical user</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:16px;font-family:monospace;font-size:12px;color:#eee;min-height:120px;border-radius:6px 6px 0 0">
+      <div style="background:#2d2d44;padding:10px 14px;border-radius:4px;margin-bottom:8px;color:#7ec8e3">📱 iPhone Photo Backup</div>
+      <div style="color:#aaa;margin:4px 0">Connecting to iPhone...</div>
+      <div style="color:#5fba7d">✓ Connected — 18,332 photos found</div>
+      <div style="margin-top:8px">
+        <div style="background:#333;border-radius:3px;height:8px;overflow:hidden">
+          <div style="background:#5fba7d;width:72%;height:100%"></div>
+        </div>
+        <div style="color:#aaa;font-size:11px;margin-top:4px">13,199 / 18,332  •  72%  •  ~6 min left</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Polished Console Window</h3>
+      <p>A double-clickable <code>.bat</code> file that opens a coloured terminal window. Clean status lines, progress bar in text form, friendly messages. No extra dependencies.</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Zero extra libraries</li><li>Easy to troubleshoot</li><li>Scrollable log</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Still looks like a terminal</li><li>Can feel intimidating</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f5f5f5;padding:16px;min-height:120px;border-radius:6px 6px 0 0;font-family:system-ui">
+      <div style="background:#fff;border:1px solid #ddd;border-radius:8px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="font-size:24px">📱</span>
+          <div>
+            <div style="font-weight:600;font-size:14px">iPhone Photo Backup</div>
+            <div style="font-size:11px;color:#888">Copying 18,332 photos to Pictures</div>
+          </div>
+        </div>
+        <div style="background:#e8f5e9;border-radius:4px;height:10px;overflow:hidden;margin-bottom:6px">
+          <div style="background:#4caf50;width:72%;height:100%;border-radius:4px"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#666">
+          <span>13,199 copied</span><span>72%</span><span>~6 min left</span>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:#555;background:#f9f9f9;padding:6px 8px;border-radius:4px">✓ IMG_4667.HEIC</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — GUI Window (tkinter)</h3>
+      <p>A proper windowed app with a progress bar, status text, and a log panel. Double-click to launch. Looks like real software.</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Feels like real software</li><li>Non-intimidating</li><li>Visual progress bar</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>tkinter UI can look dated</li><li>More code to maintain</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1c1c1c;padding:16px;min-height:120px;border-radius:6px 6px 0 0;font-family:system-ui;display:flex;align-items:flex-end;justify-content:flex-end">
+      <div style="background:#2d2d2d;border:1px solid #444;border-radius:8px;padding:12px 16px;width:280px;box-shadow:0 4px 20px rgba(0,0,0,0.5)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:18px">📱</span>
+          <div style="font-weight:600;font-size:13px;color:#fff">iPhone Backup Complete</div>
+        </div>
+        <div style="font-size:11px;color:#aaa">18,332 photos copied to Pictures/iPhone Photos</div>
+        <div style="margin-top:8px;background:#333;border-radius:3px;height:4px"><div style="background:#4caf50;width:100%;height:100%"></div></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Packaged .exe with Tray Icon</h3>
+      <p>Compiled into a standalone <code>.exe</code> (PyInstaller). Runs silently in the system tray, shows a Windows toast notification when done. No Python needed to run.</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Truly standalone</li><li>Professional feel</li><li>No install needed</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Build complexity</li><li>AV false positives</li><li>Harder to debug</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
