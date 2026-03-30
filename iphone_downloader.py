@@ -26,6 +26,28 @@ import win32com.client
 from pathlib import Path
 from datetime import datetime
 
+import ctypes
+import msvcrt
+import colorama
+from colorama import Fore, Style
+
+# Enable UTF-8 output and ANSI colors in Windows console
+try:
+    ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+    ctypes.windll.kernel32.SetConsoleCP(65001)
+except Exception:
+    pass
+colorama.init()
+
+# ── Color shortcuts ────────────────────────────────────────────────────────────
+CYAN   = Fore.CYAN
+GREEN  = Fore.GREEN
+YELLOW = Fore.YELLOW
+RED    = Fore.RED
+DIM    = Style.DIM
+BRIGHT = Style.BRIGHT
+RESET  = Style.RESET_ALL
+
 # ── Configuration ──────────────────────────────────────────────────────────────
 TIMEOUT_PER_FILE  = 120   # seconds to wait for a single file before giving up
 MAX_RETRIES       = 3     # how many times to retry a failed file
