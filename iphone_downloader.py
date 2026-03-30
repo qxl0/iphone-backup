@@ -25,6 +25,7 @@ import pythoncom
 import win32com.client
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 
 import ctypes
 import msvcrt
@@ -37,7 +38,7 @@ try:
     ctypes.windll.kernel32.SetConsoleCP(65001)
 except Exception:
     pass
-colorama.init()
+colorama.init(autoreset=True)
 
 # ── Color shortcuts ────────────────────────────────────────────────────────────
 CYAN   = Fore.CYAN
@@ -102,8 +103,7 @@ def prompt_dest() -> Path:
     print(f"  {YELLOW}{default}{RESET}\n")
     print(f"Press {GREEN}Enter{RESET} to use this folder,")
     print(f"or type a new path and press Enter:")
-    print(f"> ", end="", flush=True)
-    user_input = input().strip()
+    user_input = input("> ").strip()
     if user_input:
         chosen = Path(user_input)
     else:
@@ -392,6 +392,7 @@ def copy_with_timeout(shell, src_item, dest_dir: Path, filename: str,
 # ── Main transfer logic ────────────────────────────────────────────────────────
 
 def transfer_photos(dest_dir: Path, log, reset: bool = False) -> None:
+    dest_dir.mkdir(parents=True, exist_ok=True)
     state = TransferState(dest_dir / "transfer_state.json")
     if reset:
         state.reset()
@@ -476,15 +477,15 @@ def transfer_photos(dest_dir: Path, log, reset: bool = False) -> None:
 
         # ── Copy loop ──────────────────────────────────────────────────────────
         print()
-        copied = skipped = failed = 0
+        copied = skipped = failed = perm_failed = 0
         start_time = time.time()
-        last_sub: str | None = None
+        last_sub = None  # type: Optional[str]
 
         for sub_name, dest_sub, file_item, filename in all_items:
             dest_sub.mkdir(exist_ok=True)
             key       = f"{sub_name}/{filename}"
             dest_path = dest_sub / filename
-            done_so_far = copied + skipped + failed
+            done_so_far = copied + skipped + failed + perm_failed
 
             # Album header when subfolder changes
             if sub_name != last_sub:
@@ -504,7 +505,7 @@ def transfer_photos(dest_dir: Path, log, reset: bool = False) -> None:
 
             retries = state.get_retries(key)
             if retries >= MAX_RETRIES:
-                failed += 1
+                perm_failed += 1
                 log.warning(f"Max retries reached: {key}")
                 continue
 
@@ -545,7 +546,7 @@ def transfer_photos(dest_dir: Path, log, reset: bool = False) -> None:
         elapsed_total = int(time.time() - start_time)
         print()
 
-        if copied == 0 and skipped == total:
+        if copied == 0 and failed == 0 and skipped + perm_failed == total:
             print(f"\n{GREEN}\u2713 No new photos found \u2014 you\u2019re all backed up!{RESET}")
         else:
             print(f"\n{GREEN}{BRIGHT}\u2713 Backup complete!{RESET}")
@@ -555,11 +556,13 @@ def transfer_photos(dest_dir: Path, log, reset: bool = False) -> None:
                 print(f"  {skipped:,} already up to date (skipped)")
             if failed:
                 print(f"  {RED}{failed:,} failed{RESET} \u2014 run again to retry")
+            if perm_failed:
+                print(f"  {RED}{perm_failed:,} could not be copied{RESET} (tried {MAX_RETRIES}x, giving up)")
             print(f"  Completed in {format_elapsed(elapsed_total)}")
 
         print(f"\n{DIM}Saved to: {dest_dir}{RESET}")
-        if failed:
-            log.warning(f"{failed} file(s) failed after {MAX_RETRIES} retries.")
+        if failed or perm_failed:
+            log.warning(f"{failed} file(s) failed this run; {perm_failed} permanently skipped after {MAX_RETRIES} retries.")
 
     except OSError as exc:
         msg = str(exc).lower()
