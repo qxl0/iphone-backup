@@ -87,6 +87,36 @@ def format_eta(done: int, total: int, elapsed: float) -> str:
         return f"~{h}h {m}m left"
     return f"~{remaining_minutes} min left"
 
+
+def print_banner() -> None:
+    """Print the app header banner."""
+    print(f"\n{CYAN}{BRIGHT}╔══════════════════════════════╗{RESET}")
+    print(f"{CYAN}{BRIGHT}║   \U0001f4f1  iPhone Photo Backup    \u2551{RESET}")
+    print(f"{CYAN}{BRIGHT}╚══════════════════════════════╝{RESET}\n")
+
+
+def prompt_dest() -> Path:
+    """Show default destination, let user override. Returns chosen Path."""
+    default = Path.home() / "Pictures" / "iPhone Photos"
+    print(f"Save photos to:")
+    print(f"  {YELLOW}{default}{RESET}\n")
+    print(f"Press {GREEN}Enter{RESET} to use this folder,")
+    print(f"or type a new path and press Enter:")
+    print(f"> ", end="", flush=True)
+    user_input = input().strip()
+    if user_input:
+        chosen = Path(user_input)
+    else:
+        chosen = default
+    print()
+    return chosen
+
+
+def press_any_key(msg: str = "Press any key to close...") -> None:
+    """Wait for a single keypress."""
+    print(f"\n{DIM}{msg}{RESET}", flush=True)
+    msvcrt.getwch()
+
 # ── Configuration ──────────────────────────────────────────────────────────────
 TIMEOUT_PER_FILE  = 120   # seconds to wait for a single file before giving up
 MAX_RETRIES       = 3     # how many times to retry a failed file
