@@ -133,17 +133,19 @@ def setup_logging(dest_dir: Path) -> logging.Logger:
     logger.setLevel(logging.DEBUG)
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%H:%M:%S")
 
+    # File handler — captures everything (DEBUG+) for troubleshooting
     fh = logging.FileHandler(log_file, encoding="utf-8")
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(fmt)
+    logger.addHandler(fh)
 
+    # Console handler — WARNING+ only; UI uses colorama print statements
     ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.INFO)
+    ch.setLevel(logging.WARNING)
     ch.setFormatter(fmt)
     ch.stream.reconfigure(encoding="utf-8", errors="replace")
-
-    logger.addHandler(fh)
     logger.addHandler(ch)
+
     return logger
 
 
