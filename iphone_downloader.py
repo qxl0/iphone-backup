@@ -48,6 +48,45 @@ DIM    = Style.DIM
 BRIGHT = Style.BRIGHT
 RESET  = Style.RESET_ALL
 
+# ── UI helper functions ────────────────────────────────────────────────────────────
+
+def format_elapsed(seconds: int) -> str:
+    """Return human-readable elapsed time. E.g. '1 hour 42 minutes'."""
+    if seconds < 60:
+        return "less than a minute"
+    total_minutes = seconds // 60
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    if hours > 0:
+        h = f"{hours} hour{'s' if hours != 1 else ''}"
+        m = f"{minutes} minute{'s' if minutes != 1 else ''}"
+        return f"{h} {m}"
+    return f"{minutes} minute{'s' if minutes != 1 else ''}"
+
+
+def format_bar(done: int, total: int, width: int = 22) -> str:
+    """Return a text progress bar. E.g. '[████░░░░░░]'."""
+    if total == 0:
+        return "[" + "░" * width + "]"
+    filled = int(width * done / total)
+    return "[" + "█" * filled + "░" * (width - filled) + "]"
+
+
+def format_eta(done: int, total: int, elapsed: float) -> str:
+    """Return estimated time remaining. E.g. '~6 min left'."""
+    if done == 0 or elapsed == 0:
+        return "estimating..."
+    rate = done / elapsed  # files per second
+    remaining_seconds = (total - done) / rate
+    if remaining_seconds < 60:
+        return "< 1 min left"
+    remaining_minutes = int(remaining_seconds // 60)
+    if remaining_minutes >= 60:
+        h = remaining_minutes // 60
+        m = remaining_minutes % 60
+        return f"~{h}h {m}m left"
+    return f"~{remaining_minutes} min left"
+
 # ── Configuration ──────────────────────────────────────────────────────────────
 TIMEOUT_PER_FILE  = 120   # seconds to wait for a single file before giving up
 MAX_RETRIES       = 3     # how many times to retry a failed file
